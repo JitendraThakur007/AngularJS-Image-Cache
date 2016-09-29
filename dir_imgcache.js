@@ -3,7 +3,7 @@ var FOLDER_IMAGE_CACHE = 'IMAGE_CACHE';
 var LastUsedMap = null;
 var hasRunClearup = false;
 
-sympay.directive('cacheimg', function() {
+app.directive('cacheimg', function() {
     return {
         restrict: 'A',
         link: function(scope, elem, attrs) {
