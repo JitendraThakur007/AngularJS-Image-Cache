@@ -14,39 +14,40 @@ app.directive('cacheimg', function() {
                 hasRunClearup = true;
                 clearUnusedCache();
             }
-            
+ 
             // Watch any value changes
             scope.$watch(function () {
-                return elem.css(attrs.style);
+                return elem.style;
             },  function(){
-
+                
+                console.log(LOG_TAG + 'Background-image has triggered the watch.');
+             
                 // Style has been changed so check image hasn't been modified
-                findImageURLs(elem, attrs);
+                findImageURLFromBackgroundImage(elem, attrs);
 
             }, true);
 
             scope.$watch(function () {
                 return attrs.src;
             },  function(){
-
+                
+                console.log(LOG_TAG + 'Img src has triggered the watch.');
+                
                 // Image source has been changed so check image hasn't been modified
-                findImageURLs(elem, attrs);
+                findImageURLFromImgSrc(elem, attrs);
 
             }, true);
-
-
-            // Do an initial search for anything pre-set
-            findImageURLs(elem, attrs);
 
         }
     };
 });
 
-function findImageURLs(elem, attrs){
+function findImageURLFromBackgroundImage(elem, attrs){
     // Check for  background image
     if (elem.css('background-image') !== 'none'){
-        console.log(LOG_TAG + 'Background Image');
-
+        console.log(LOG_TAG + 'Found Background-Image');
+        
+        // Remove the URL() tags around the background source
         var backimgsrc = elem.css('background-image');
         if (backimgsrc.startsWith('url(')){
             backimgsrc = backimgsrc.substring(4, backimgsrc.length -1);
@@ -68,7 +69,9 @@ function findImageURLs(elem, attrs){
         });
 
     }
+}
 
+function findImageURLFromImgSrc(elem, attrs){
     // Check for a src tag
     if (attrs.src !== undefined){
         console.log(LOG_TAG + 'Found Src Tag');
