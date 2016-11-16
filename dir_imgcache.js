@@ -6,6 +6,11 @@ app.directive('cacheimg', function() {
 	var hasRunClearup = false;
 	var ORIGINAL_PATH = 'originalpath';
     
+	// Check if we have initialised our session url cache
+	if (sessionStorage.imageurlcache === null || sessionStorage.imageurlcache === undefined){
+		console.log(LOG_TAG + 'Setting up the temp session storage image cache');
+		sessionStorage.setItem("imageurlcache", JSON.stringify({}));
+	}
 	
 	// Find an image URL from a background image url tag
 	var findImageURLFromBackgroundImage = function(elem, attrs){
@@ -29,25 +34,35 @@ app.directive('cacheimg', function() {
 			if (source.startsWith('url(')){
 				source = source.substring(4, source.length -1);
 			}
-
-			// Retrieve from the cache (or download if we havent already)
+			
+			// First attempt to get from the url cache
 			GetFromCache(source, function(imgPath){
-				console.log(LOG_TAG + 'Got image - setting now');
-				
-				// Set the original path into an attribute on the element
-				if (!gotFromOriginalAttr){
-					elem.attr(ORIGINAL_PATH, source);
-				}
 				
 				// Got the image, set it now
 				elem.css('background-image', 'url(' + imgPath + ')');
+					
+			}, function(){
+				
+				// Retrieve from the cache (or download if we havent already)
+				GetFromFileSystem(source, function(imgPath){
+					console.log(LOG_TAG + 'Got image - setting now');
+					
+					// Set the original path into an attribute on the element
+					if (!gotFromOriginalAttr){
+						elem.attr(ORIGINAL_PATH, source);
+					}
+					
+					// Got the image, set it now
+					elem.css('background-image', 'url(' + imgPath + ')');
 
-			}, function(err){
-				console.log(LOG_TAG + 'Failed to get image from cache');
+				}, function(err){
+					console.log(LOG_TAG + 'Failed to get image from cache');
 
-				// SET BROKEN LINK IMAGE HERE
-				elem.css('background-image', 'url(../../img/brokenlink.png)');
+					// SET BROKEN LINK IMAGE HERE
+					elem.css('background-image', 'url(../../img/brokenlink.png)');
 
+				});
+				
 			});
 
 		}
@@ -71,27 +86,37 @@ app.directive('cacheimg', function() {
 		// Check for a src tag
 		if (source !== undefined){
 			console.log(LOG_TAG + 'Found Src Tag');
-
-			// Retrieve from the cache (or download if we havent already)
+			
+			// First attempt to get from the url cache
 			GetFromCache(source, function(imgPath){
-				console.log(LOG_TAG + 'Got image - setting now');
-				
-				// Set the original path into an attribute on the element
-				if (!gotFromOriginalAttr){
-					elem.attr(ORIGINAL_PATH, source);
-				}
 				
 				// Got the image, set it now
 				elem.attr('src', imgPath);
+					
+			}, function(){
+				
+				// Retrieve from the cache (or download if we havent already)
+				GetFromFileSystem(source, function(imgPath){
+					console.log(LOG_TAG + 'Got image - setting now');
+					
+					// Set the original path into an attribute on the element
+					if (!gotFromOriginalAttr){
+						elem.attr(ORIGINAL_PATH, source);
+					}
+					
+					// Got the image, set it now
+					elem.attr('src', imgPath);
 
-			}, function(err){
-				console.log(LOG_TAG + 'Failed to get image from cache');
+				}, function(err){
+					console.log(LOG_TAG + 'Failed to get image from cache');
 
-				// SET BROKEN LINK IMAGE HERE
-				elem.attr('src', '../../img/brokenlink.png');
+					// SET BROKEN LINK IMAGE HERE
+					elem.attr('src', '../../img/brokenlink.png');
 
+				});
+			
 			});
-
+			
 		}
 	};
 	
@@ -105,13 +130,31 @@ app.directive('cacheimg', function() {
 		return result;
 	};
 
+	// Store the local URL in a temporary session variable for speed
+	var GetFromCache = function(sourceUrl, success, fail){
+		console.log(LOG_TAG + 'Getting image from the cache. Source: ' + sourceUrl);
+		
+		var startTime = new Date().getTime();
+		var fileKey = buildFileKey(sourceUrl);
+		var cacheObj = JSON.parse(sessionStorage.getItem("imageurlcache"));
+		
+		if (cacheObj !== undefined && cacheObj.hasOwnProperty(fileKey)){
+			console.log(LOG_TAG + 'Found Cached URL: ' + cacheObj[fileKey]);
+			console.log(LOG_TAG + 'Time Taken: ' + (new Date().getTime() - startTime));
+			return success(cacheObj[fileKey]);
+		} else {
+			console.log(LOG_TAG + 'Image is not yet cached in our URL store');
+			return fail();
+		}
+		
+	};
 	
 	// Either get hold of the file from the cache or if we don't currently have it
 	// then attempt to download and store in the cache ready for next time
-	var GetFromCache = function(sourceUrl, success, fail) {
+	var GetFromFileSystem = function(sourceUrl, success, fail) {
+		console.log(LOG_TAG + 'Getting image from the File System. Source: ' + sourceUrl);
 		
-		console.log(LOG_TAG + 'Getting image from the cache. Source: ' + sourceUrl);
-		
+		var startTime = new Date().getTime();
 		var fileKey = buildFileKey(sourceUrl);
 		var cacheExpiry = new Date().getTime() - (86400000 * 3); // 3 days
 		
@@ -134,6 +177,12 @@ app.directive('cacheimg', function() {
 					// clear out anything that hasn't been requested in a while
 					updateLastRequested(fileKey);
 					
+					// Store in the url cache to speed up our next get for this image
+					console.log(LOG_TAG + 'Storing in cache for quicker get next time around');
+					var obj = JSON.parse(sessionStorage.getItem("imageurlcache"));
+					obj[fileKey] = fileEntry.toURL();
+					sessionStorage.setItem("imageurlcache", JSON.stringify(obj));
+					
 					// File exists - check if it needs to be renewed
 					if (new Date(fileEntry.lastModifiedDate).getTime() < cacheExpiry){
 						console.log(LOG_TAG + 'Image has passed the expiry threshold - re-getting the file');
@@ -142,6 +191,7 @@ app.directive('cacheimg', function() {
 					
 					// Return the file path
 					console.log(LOG_TAG + 'Passing back the image path ' + fileEntry.toURL());
+					console.log(LOG_TAG + 'Time Taken: ' + (new Date().getTime() - startTime));
 					return (success(fileEntry.toURL()));
 					
 				}, function(){
@@ -274,7 +324,7 @@ app.directive('cacheimg', function() {
 					console.log(LOG_TAG + 'Deleted cached image file ' + key);
 					
 					// Remove from the map
-					delete DIRIMG_LastUsedMap[key]
+					delete DIRIMG_LastUsedMap[key];
 					
 					// Update the local storage cache
 					localStorage['DIR_IMGCACHE_LASTUSED'] = JSON.stringify(DIRIMG_LastUsedMap);
@@ -282,7 +332,7 @@ app.directive('cacheimg', function() {
 				}, function(err){
 					
 					// Remove from the map
-					delete DIRIMG_LastUsedMap[key]
+					delete DIRIMG_LastUsedMap[key];
 					
 					// Update the local storage cache
 					localStorage['DIR_IMGCACHE_LASTUSED'] = JSON.stringify(DIRIMG_LastUsedMap);
