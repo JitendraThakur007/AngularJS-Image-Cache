@@ -1,10 +1,9 @@
 # AngularJS-Image-Cache
 This directive is a simple to use image caching handler built to store and maintain requested images in your Cordova AngularJS project. 
 
-The basics of how this work are; the directive will monitor src and background-image changes on the element you have instructed it to monitor (by use of the cacheimg attribute). The directive will then fetch the image source, convert it into a storable key value (this becomes the filename)  and downloads and writes the file to a temporary storage location on your device. 
-On each initial run a clear up function is called which deletes any file that hasn't been requested within 7 days (modify this as you see fit)  - we do this because we don't want to rely on the OS to remove files and we want to keep things clean.
+This has been updated since the first version. The previous version would monitor changes from the src and background-image attributes on whatever element you were using. This has now been scrapped - you now add a 'img-src' attribute onto your element which will be watched for changes, on change the directive will get this source and depending on the element in use; will populate either the src or background-image attribute itself.
 
-We have to use a $watch on the attributes for when the source is populated using an AngularJS scope variable, the reason behind this is because the directory ends up being run prior to the variable being set. If you are not going to be using the directive to handle scope populated sources then I suggest you alter the directive to remove the $watch calls
+The first time an image is loaded will be slower the any following requests, I have added in a sessionStorage cache to hold the local file location on first load. Second loads can take less than 2ms (This is improved over the last version that kept diving into the FileSystem which was taking between 200-900ms per load!)
 
 Requirements:
 - Cordova-Plugin-File
@@ -24,12 +23,12 @@ Then simply add the  ''cacheimg'' attribute to your element as below:
 
 ```html
 // Handling a background-image source
-<div cacheimg style="background-image:url(img/myimage.png);"></div>
+<div cacheimg img-src="img/myimage.png"></div>
 
 // Handling an image element source
-<img cacheimg src="img/myimage.png" />
+<img cacheimg img-src="img/myimage.png" />
 
 // Handling a AngularJS scoped image background source
-<div cacheimg style="background-image:url({{ item.myimagesource }});"></div>
+<div cacheimg img-src="item.myimagesource"></div>
 ```
 
